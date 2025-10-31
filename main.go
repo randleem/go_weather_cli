@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,8 +25,9 @@ func main() {
 	}
 	apiKey := os.Getenv("GOOGLE_GEO_CODING_API_KEY")
 
+	location := handleInput()
 	// GeoCoding: get address long, lat
-	geoCodingurl := "https://maps.googleapis.com/maps/api/geocode/json?address=birmingham,+GB&key=" + apiKey
+	geoCodingurl := "https://maps.googleapis.com/maps/api/geocode/json?address=" + location + ",+GB&key=" + apiKey
 	geoCode, err := getAPI(geoCodingurl)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -54,7 +56,7 @@ func parseResponse(r io.Reader) (GoogleResponse, error) {
 }
 
 func parseWeather(address string, weather google.WeatherResponse) {
-	fmt.Printf("The weather today at %v is looking %v, with a temperaure of %v and a %v%% chance of rain,", address, weather.WeatherCondition.Type, weather.Temperature.Degrees, weather.Precipitation.Probability.Percent)
+	fmt.Printf("The weather today in %v is looking %v, with a temperaure of %v and an %v%% chance of rain,", address, weather.WeatherCondition.Type, weather.Temperature.Degrees, weather.Precipitation.Probability.Percent)
 }
 
 func getAPI(api string) (GoogleResponse, error) {
@@ -68,4 +70,11 @@ func getAPI(api string) (GoogleResponse, error) {
 		log.Fatalf("status code error: %d %s", resp.StatusCode, resp.Status)
 	}
 	return parseResponse(resp.Body)
+}
+
+func handleInput() string {
+	fmt.Println("Enter city name for weather report")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	return scanner.Text()
 }
