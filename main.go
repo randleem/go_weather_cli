@@ -25,7 +25,7 @@ func main() {
 	apiKey := os.Getenv("GOOGLE_GEO_CODING_API_KEY")
 
 	// GeoCoding: get address long, lat
-	geoCodingurl := "https://maps.googleapis.com/maps/api/geocode/json?address=131+pineapple+road,+stirchley,+birmingham,+GB&key=" + apiKey
+	geoCodingurl := "https://maps.googleapis.com/maps/api/geocode/json?address=birmingham,+GB&key=" + apiKey
 	geoCodeRes, err := http.Get(geoCodingurl)
 	if err != nil {
 		fmt.Println("Error: weatherAPI")
@@ -70,7 +70,3 @@ func parseResponse[T GoogleResponse](r io.Reader) (T, error) {
 	}
 	return response, nil
 }
-
-// 131+pineapple+road,+stirchley,+birmingham,+GB
-// func parseAddress(string) string {
-// }
