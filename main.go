@@ -3,24 +3,50 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
+	"github.com/randleem/go_weather_cli/google"
 )
 
-const weatherAPI = "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current=temperature_2m,wind_speed_10m"
-
-type CurrentWeather struct {
-	Temperature float32 `json:"temperature_2m"`
-	WindSpeed   float32 `json:"wind_speed_10m"`
-}
-type Weather struct {
-	Latitude  float32
-	Longitude float32
-	Current   CurrentWeather
+type GoogleResponse struct {
+	google.WeatherResponse
+	google.GeocodeResponse
 }
 
 func main() {
-	resp, err := http.Get(weatherAPI)
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	apiKey := os.Getenv("GOOGLE_GEO_CODING_API_KEY")
+
+	// GeoCoding: get address long, lat
+	geoCodingurl := "https://maps.googleapis.com/maps/api/geocode/json?address=131+pineapple+road,+stirchley,+birmingham,+GB&key=" + apiKey
+	geoCodeRes, err := http.Get(geoCodingurl)
+	if err != nil {
+		fmt.Println("Error: weatherAPI")
+	}
+	defer geoCodeRes.Body.Close()
+	if geoCodeRes.StatusCode != http.StatusOK {
+		log.Fatalf("status code error: %d %s", geoCodeRes.StatusCode, geoCodeRes.Status)
+	}
+	fmt.Println(geoCodeRes.Status)
+
+	geoCode, err := parseResponse(geoCodeRes.Body)
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+
+	lat := geoCode.Results[0].Geometry.Location.Lat
+	long := geoCode.Results[0].Geometry.Location.Lng
+	fmt.Println("Address:", geoCode.Results[0].FormattedAddress)
+
+	// Weather: get weather data
+	resp, err := http.Get(fmt.Sprintf("https://weather.googleapis.com/v1/currentConditions:lookup?key=%v&location.latitude=%v&location.longitude=%v", apiKey, lat, long))
 	if err != nil {
 		fmt.Println("Error: weatherAPI")
 	}
@@ -29,16 +55,22 @@ func main() {
 	if resp.StatusCode != http.StatusOK {
 		log.Fatalf("status code error: %d %s", resp.StatusCode, resp.Status)
 	}
-
-	dec := json.NewDecoder(resp.Body)
+	weather, err := parseResponse(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Error:", err)
 	}
-	var weather Weather
-	if err := dec.Decode(&weather); err != nil {
-		fmt.Print("Error: ", err)
-	}
-	fmt.Println(weather.Current.Temperature, weather.Current.WindSpeed)
+	fmt.Printf("The weather today at %v is looking %v, with a temperaure of %v and a %v%% chance of rain,", geoCode.Results[0].FormattedAddress, weather.WeatherCondition.Type, weather.Temperature.Degrees, weather.Precipitation.Probability.Percent)
 }
 
-// Get weather from api
+func parseResponse[T GoogleResponse](r io.Reader) (T, error) {
+	dec := json.NewDecoder(r)
+	var response T
+	if err := dec.Decode(&response); err != nil {
+		return response, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return response, nil
+}
+
+// 131+pineapple+road,+stirchley,+birmingham,+GB
+// func parseAddress(string) string {
+// }
